@@ -56,8 +56,6 @@ main {
   border: 1px solid black;
   border-radius: 0.4rem;
   padding: 0.2rem;
-  /* overflow: hidden;
-  flex-wrap: nowrap; */
   min-height: 3rem;
 }
 
@@ -153,4 +151,17 @@ img {
   height: 40px;
   width: 40px;
   border-radius: 50%;
+}
+
+/* taken from W3 school to hide the arrows to change the number for input type=number */
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
 }
