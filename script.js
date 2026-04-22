@@ -1,65 +1,57 @@
+import { fetchCurrencyRates } from "./fetchCurrencyRates.js";
+
 //DOM ELEMENTS SELECTORS
 const inputAmount = document.querySelector(".input-amount");
 const outputAmount = document.querySelector(".output-amount");
-const startingCurrency = document.querySelector(".starting-currency");
-const endingCurrency = document.querySelector(".ending-currency");
-const currencyDropdown = document.querySelectorAll(".currency");
+const baseCurrencyDropdown = document.querySelector(".starting-currency");
+const counterCurrencyDropdown = document.querySelector(".ending-currency");
 const swapCurrencies = document.querySelector(".swap-button");
-const flagStart = document.querySelector(".start-flag");
-const flagEnd = document.querySelector(".end-flag");
+const flagStart = document.querySelector("#start-flag");
+const flagEnd = document.querySelector("#end-flag");
 
 //event listeners
 
 inputAmount.addEventListener("input", convertAmount);
 
-setupListener(startingCurrency);
-setupListener(endingCurrency);
+const currencies = await fetchCurrencyRates();
+let globalFlags = [];
 
 //attach event listener on each dropdown element
-function setupListener(element) {
-  element.addEventListener("change", () => {
-    convertAmount();
-    changeFlag();
-  });
-}
+
+baseCurrencyDropdown.addEventListener("change", () => {
+  convertAmount();
+  changeFlag(baseCurrencyDropdown.value, flagStart);
+});
+counterCurrencyDropdown.addEventListener("change", () => {
+  convertAmount();
+  changeFlag(counterCurrencyDropdown.value, flagEnd);
+});
 
 swapCurrencies.addEventListener("click", () => {
-  [startingCurrency.value, endingCurrency.value] = [
-    endingCurrency.value,
-    startingCurrency.value,
+  [baseCurrencyDropdown.value, counterCurrencyDropdown.value] = [
+    counterCurrencyDropdown.value,
+    baseCurrencyDropdown.value,
   ];
   convertAmount();
-  changeFlag();
+  changeFlag(baseCurrencyDropdown.value, flagStart);
+  changeFlag(counterCurrencyDropdown.value, flagEnd);
 });
 
 //fetching function
 
-let currencies;
-let globalFlags;
-async function fetchCurrencyRates() {
-  try {
-    //fetching the currencies
-    const currenciesResponse = await fetch(
-      "https://open.er-api.com/v6/latest/USD",
-    );
-    const currencyData = await currenciesResponse.json();
-    currencies = currencyData.rates;
-    fetchFlags();
-  } catch (err) {
-    console.log("Fetching currencies went wrong with the error:", err);
-  }
-}
-fetchCurrencyRates();
-
 async function fetchFlags() {
   //fetching flags
-  const flagsResponse = await fetch(
-    "https://gist.githubusercontent.com/ibrahimhajjaj/a0e39e7330aebf0feb49912f1bf9062f/raw/d160e7d3b0e11ea3912e97a1b3b25b359746c86a/currencies-with-flags.json",
-  );
-  const flagData = await flagsResponse.json();
-  globalFlags = flagData;
-  populateOptions(currencies);
-  initUI();
+  try {
+    const flagsResponse = await fetch(
+      "https://gist.githubusercontent.com/ibrahimhajjaj/a0e39e7330aebf0feb49912f1bf9062f/raw/d160e7d3b0e11ea3912e97a1b3b25b359746c86a/currencies-with-flags.json",
+    );
+    if (!flagsResponse.ok) {
+      throw new Error(`Flags not found: ${flagsResponse.status}`);
+    }
+    return await flagsResponse.json();
+  } catch (err) {
+    return [];
+  }
 }
 
 //populate options for the currencies
@@ -69,22 +61,18 @@ function populateOptions(currencies) {
     out += `<option value="${currency}">${currency}</option>`;
   }
   //populate dropdown elements
-  startingCurrency.innerHTML = out;
-  endingCurrency.innerHTML = out;
+  baseCurrencyDropdown.innerHTML = out;
+  counterCurrencyDropdown.innerHTML = out;
 
-  startingCurrency.value = "EUR";
-  endingCurrency.value = "DKK";
-  changeFlag();
-}
-
-//set the default amount to be converted immediately
-function initUI() {
-  outputAmount.textContent = getRates("DKK", "EUR");
+  baseCurrencyDropdown.value = "EUR";
+  counterCurrencyDropdown.value = "DKK";
+  changeFlag(baseCurrencyDropdown.value, flagStart);
+  changeFlag(counterCurrencyDropdown.value, flagEnd);
 }
 
 function convertAmount() {
-  const convertTo = endingCurrency.value;
-  const convertFrom = startingCurrency.value;
+  const convertTo = counterCurrencyDropdown.value;
+  const convertFrom = baseCurrencyDropdown.value;
   outputAmount.textContent = getRates(convertTo, convertFrom);
 }
 
@@ -94,21 +82,31 @@ function getRates(to, from) {
   );
 }
 
-function changeFlag() {
-  if (!globalFlags) return;
+function changeFlag(currencyCode, flagElement) {
+  const newFlag = globalFlags.find(
+    (currency) => currency.code === currencyCode,
+  );
 
-  const fromFlag = globalFlags.find(
-    (element) => element.code === startingCurrency.value,
-  );
-  const toFlag = globalFlags.find(
-    (element) => element.code === endingCurrency.value,
-  );
-  const toCountryCode = toFlag.countryCode.toLowerCase();
-  const fromCountryCode = fromFlag.countryCode.toLowerCase();
-  displayFlag(flagStart, fromCountryCode);
-  displayFlag(flagEnd, toCountryCode);
+  if (newFlag) {
+    const countryCode = newFlag.countryCode.toLowerCase();
+    flagElement.innerHTML = `<img src="${`https://flagcdn.com/w80/${countryCode}.png`}" alt="flag">`;
+    flagElement.classList.remove("hidden");
+  } else {
+    flagElement.classList.add("hidden");
+  }
 }
 
-function displayFlag(position, currency) {
-  position.innerHTML = `<img src="${`https://flagcdn.com/w80/${currency}.png`}" alt="flag">`;
+// initialize the UI and make it the entry point of the app
+function initUI() {
+  populateOptions(currencies);
+  outputAmount.textContent = getRates("DKK", "EUR");
+
+  fetchFlags().then((data) => {
+    globalFlags = data;
+
+    changeFlag(baseCurrencyDropdown.value, flagStart);
+    changeFlag(counterCurrencyDropdown.value, flagEnd);
+  });
 }
+
+initUI();
